@@ -31,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
@@ -45,13 +44,13 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.google.gson.Gson
 import com.yuvrajsinghgmx.shopsmart.R
 import com.yuvrajsinghgmx.shopsmart.datastore.Poduct
 import com.yuvrajsinghgmx.shopsmart.datastore.saveItems
 import com.yuvrajsinghgmx.shopsmart.utils.SharedPrefsHelper
 import com.yuvrajsinghgmx.shopsmart.viewmodel.ShoppingListViewModel
 import kotlinx.coroutines.launch
-import okhttp3.internal.wait
 
 data class Product(val name: String, val amount: Int, val imageUrl: String? = null, val dateAdded: Long = System.currentTimeMillis())
 
@@ -101,7 +100,7 @@ fun HomeScreen(viewModel: ShoppingListViewModel = hiltViewModel(), navController
                         style = MaterialTheme.typography.headlineMedium,
                     )
                 },
-                modifier = Modifier.height(65.dp),
+                modifier = Modifier.height(60.dp),
                 actions = {
                     Row (
                         modifier = Modifier,
@@ -136,27 +135,76 @@ fun HomeScreen(viewModel: ShoppingListViewModel = hiltViewModel(), navController
                                 )
                             }
                         }
-                        if(items.value.isNotEmpty()) {
-                            Checkbox(
-                                checked = selectAll,
-                                onCheckedChange = { checked ->
-                                    selectAll = checked
-                                    if (checked) {
-                                        selectedItems.addAll(items.value)
-                                    } else {
-                                        selectedItems.clear()
-                                    }
-                                    showDeleteButton = selectedItems.isNotEmpty()
-                                },
-                            )
-                        }
+                        Checkbox(
+                            checked = selectAll,
+                            onCheckedChange = { checked ->
+                                selectAll = checked
+                                if (checked) {
+                                    selectedItems.addAll(items.value)
+                                } else {
+                                    selectedItems.clear()
+                                }
+                                showDeleteButton = selectedItems.isNotEmpty()
+                            },
+                        )
 
                     }
-
-
                 }
             )
         },
+
+
+
+        floatingActionButton = {
+            val subtotal = selectedItems.sumOf { it.amount }
+            val deliveryFee = 0
+            val discount = 0
+            val total = subtotal + deliveryFee - discount
+            if (selectedItems.isNotEmpty()) {
+                FloatingActionButton(
+                    onClick = {
+                        val selectedItemsJson = Gson().toJson(selectedItems)
+                        navController.navigate("MyOrders?selectedItems=$selectedItemsJson")
+                    }
+                ) {
+                    Column(
+                        modifier = Modifier.padding(5.dp).width(150.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                "Total:"
+                            )
+
+                            Text(
+                                "₹${total}",
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text("Checkout", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                    }
+                }
+            } else {
+                FloatingActionButton(
+                onClick = { showDialog = true },
+                modifier = Modifier.padding(5.dp, 0.dp)
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Add Item",
+                )
+            }
+            }
+        }
+
         ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -164,60 +212,44 @@ fun HomeScreen(viewModel: ShoppingListViewModel = hiltViewModel(), navController
                 .padding(innerPadding)
                 .padding(16.dp,0.dp)
         ) {
-            if (items.value.isEmpty())
-            {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
+            if (items.value.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        val infiniteTransition = rememberInfiniteTransition()
-                        val scale by infiniteTransition.animateFloat(
-                            initialValue = 1f,
-                            targetValue = 1.1f,
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(1000, easing = LinearEasing),
-                                repeatMode = RepeatMode.Reverse
-                            )
-                        )
+                    val infiniteTransition = rememberInfiniteTransition()
+                    val scale by infiniteTransition.animateFloat(
+                        initialValue = 1f,
+                        targetValue = 1.1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1000, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ), label = ""
+                    )
 
-                        Image(
-                            painter = painterResource(id = if (isSystemInDarkTheme()) R.drawable.empty_dark else R.drawable.empty_light),
-                            contentDescription = "Empty List",
-                            modifier = Modifier
-                                .size(200.dp)
-                                .scale(scale)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            "Your shopping list is empty.",
-                            style = TextStyle(
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "Add items using the  button below.",
-                            style = TextStyle(fontSize = 16.sp, color = Color.Gray)
-                        )
-                    }
-                    FloatingActionButton(
-                        onClick = { showDialog = true },
+                    Image(
+                        painter = painterResource(id = if(isSystemInDarkTheme()) R.drawable.empty_dark else R.drawable.empty_light),
+                        contentDescription = "Empty List",
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth().background(Color.White, RectangleShape)
-                    ) {
-                        Text(text = "Add Items")
-                    }
+                            .size(200.dp)
+                            .scale(scale)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Your shopping list is empty.",
+                        style = TextStyle(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Add items using the '+' button below.",
+                        style = TextStyle(fontSize = 16.sp, color = Color.Gray)
+                    )
                 }
-            } else
-            {
+            } else {
                 val groupedItems = items.value.groupBy { product ->
                     val date = java.util.Date(product.dateAdded)
                     val dateFormat = java.text.SimpleDateFormat("EEEE, d/M/y", java.util.Locale.getDefault())
@@ -298,54 +330,6 @@ fun HomeScreen(viewModel: ShoppingListViewModel = hiltViewModel(), navController
                                     )
                                 }
                             }
-                        }
-                    }
-                }
-
-                Column {
-                    val subtotal = items.value.sumOf { it.amount }
-                    val deliveryFee = 0
-                    val discount = 0
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        val total = subtotal + deliveryFee - discount
-                        Text(
-                            "Total: ₹${total}",
-                            style = TextStyle(
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Button(
-                            onClick = {
-                                saveOrdersToSharedPreferences(context, items.value)
-                                navController.navigate("MyOrders")
-                            },
-                            modifier = Modifier
-                                .height(56.dp)
-                                .weight(1f)
-                            ,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.primarybg))
-                        ) {
-                            Text("Checkout", color = Color.White, fontSize = 18.sp)
-                        }
-                        FloatingActionButton(
-                            onClick = { showDialog = true },
-                            modifier = Modifier.padding(5.dp,0.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = "Add Item",
-                            )
                         }
                     }
                 }
